@@ -1,0 +1,28 @@
+b) max|E/E0-1| en 200 s = 3.00e-10
+b) T(g=9.81) = 6.628 s
+b) T(g=1.62) = 16.311 s
+b) T(g=24.8) = 4.169 s
+b) x_max(v0=2) = 1.428 m (numérico 1.428)
+b) x_max(v0=4) = 2.856 m (numérico 2.856)
+b) x_max(v0=6) = 4.284 m (numérico 4.284)
+b) x_max(v0=8) = 5.711 m (numérico 5.711)
+b) T0 = 4.4857 s ; T(A=8) exacto = 6.6283 s ; T(8)/T0 = 1.4777
+c) phid0=0.4Oc: rho in [3.200,8.000], dE/E=3.4e-11, dL/L=2.2e-16
+c) phid0=0.8Oc: rho in [6.400,8.000], dE/E=1.1e-12, dL/L=0.0e+00
+c) phid0=1.0Oc: rho in [8.000,8.000], dE/E=0.0e+00, dL/L=0.0e+00
+c) phid0=1.4Oc: rho in [8.000,11.200], dE/E=3.2e-11, dL/L=2.2e-16
+c) l->0: phid0=0.02Oc -> rho_min = 0.160 m
+c) l->0: phid0=0.1Oc -> rho_min = 0.800 m
+c) apsidal a=0.05: xc=1: num 0.5025pi teor 0.5025pi, xc=4: num 0.5385pi teor 0.5385pi, xc=8: num 0.6403pi teor 0.6403pi, xc=14: num 0.8602pi teor 0.8602pi, xc=22: num 1.2083pi teor 1.2083pi
+c) apsidal a=0.1: xc=1: num 0.5099pi teor 0.5099pi, xc=4: num 0.6403pi teor 0.6403pi, xc=8: num 0.9434pi teor 0.9434pi, xc=14: num 1.4866pi teor 1.4866pi, xc=22: num 2.2561pi teor 2.2561pi
+c) apsidal a=0.2: xc=1: num 0.5385pi teor 0.5385pi, xc=4: num 0.9434pi teor 0.9434pi, xc=8: num 1.6763pi teor 1.6763pi, xc=14: num 2.8443pi teor 2.8443pi, xc=22: num 4.4283pi teor 4.4283pi
+c) kappa=0: rho in [6.400,8.000]
+c) kappa=10: rho in [6.112,8.000]
+c) kappa=40: rho in [5.154,8.000]
+c) kappa=160: rho in [-8.000,8.000]
+c) Omega_c = sqrt(2ga) = 1.4007 rad/s (13.38 rpm)
+d) x0=2: N/mg max numerico = 1.1600, teor 1+4a²x0² = 1.1600; N/mg en el extremo = 0.9285, teor 1/sqrt(1+4a²x0²) = 0.9285
+d) x0=4: N/mg max numerico = 1.6400, teor 1+4a²x0² = 1.6400; N/mg en el extremo = 0.7809, teor 1/sqrt(1+4a²x0²) = 0.7809
+d) x0=8: N/mg max numerico = 3.5600, teor 1+4a²x0² = 3.5600; N/mg en el extremo = 0.5300, teor 1/sqrt(1+4a²x0²) = 0.5300
+d) x0=12: N/mg max numerico = 6.7600, teor 1+4a²x0² = 6.7600; N/mg en el extremo = 0.3846, teor 1/sqrt(1+4a²x0²) = 0.3846
+d) verificación N analítica vs derivadas numéricas: error relativo máx = 6.70e-08

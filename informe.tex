@@ -1,0 +1,643 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------- idioma ----
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\IfFileExists{lmodern.sty}{\usepackage{lmodern}}{}
+\IfFileExists{spanish.ldf}{%
+  \usepackage[spanish,es-nodecimaldot,es-tabla]{babel}%
+}{%
+  % (solo por si el compilador no tiene babel-spanish; en Overleaf/TeX Live completo se usa la rama de arriba)
+  \usepackage[english]{babel}%
+  \renewcommand{\contentsname}{Índice}\renewcommand{\figurename}{Figura}%
+  \renewcommand{\tablename}{Tabla}\renewcommand{\refname}{Referencias}%
+}
+
+% ------------------------------------------------------------- paquetes -----
+\usepackage{amsmath,amssymb,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin=2.6cm]{geometry}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!60!black,citecolor=blue!50!black]{hyperref}
+\captionsetup{font=small,labelfont=bf}
+\setlength{\parskip}{3pt}
+
+% =================== DATOS QUE DEBES PERSONALIZAR ===========================
+\newcommand{\autor}{Nombre Apellidos}
+\newcommand{\repoURL}{https://github.com/TU\_USUARIO/valle-parabolico}      % <- cambia esto
+\newcommand{\repoHREF}{https://github.com/TU_USUARIO/valle-parabolico}     % <- y esto (misma URL)
+% ============================================================================
+
+% --------------------------------------------------------------- macros ------
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\pd}[2]{\dfrac{\partial #1}{\partial #2}}
+\newcommand{\ddt}[1]{\dfrac{\dd #1}{\dd t}}
+\newcommand{\ve}[1]{\vec{#1}}
+\DeclareMathOperator{\sgn}{sgn}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize, numbers=left, numberstyle=\tiny\color{gray},
+  breaklines=true, frame=single, columns=fullflexible, keepspaces=true,
+  keywordstyle=\color{blue!60!black}, commentstyle=\color{green!40!black}\itshape,
+  stringstyle=\color{red!50!black}, language=Python, showstringspaces=false,
+  inputencoding=utf8, extendedchars=true,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {ñ}{{\~n}}1
+           {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {²}{{$^2$}}1 {·}{{$\cdot$}}1 {π}{{$\pi$}}1 {ª}{{$^{\underline{a}}$}}1
+}
+
+\title{\vspace{-1cm}\textbf{El Valle Parabólico}\\[2mm]
+\large Dinámica lagrangiana de un vehículo sobre rails parabólicos fijos y giratorios\\[1mm]
+\normalsize Ejercicio 1 de la convocatoria extraordinaria de julio/septiembre (curso 2025--26)}
+\author{\autor\\[1mm] \small Mecánica y Ondas I --- Grado en Física, Universidad de Córdoba}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Se estudia el movimiento de un vehículo (masa puntual, sin rozamiento) sobre unos rails con forma
+de parábola vertical $z=ax^2$ mediante la formulación lagrangiana. Se resuelven los tres casos del enunciado:
+(b) rails fijos, un grado de libertad; (c) rails que giran alrededor del eje vertical, dos grados de libertad y
+conservación del momento angular; y (d) cálculo de la reacción normal mediante una lagrangiana auxiliar con
+multiplicador de Lagrange. Además de las soluciones analíticas (periodo exacto mediante una integral elíptica,
+potencial efectivo, órbitas circulares, ángulo apsidal, reacción normal máxima $N_{\max}=mg(1+4a^2x_0^2)$)
+se ha programado una simulación numérica que las reproduce con errores relativos
+inferiores a $10^{-7}$, y se hace un estudio sistemático de las condiciones iniciales, de los casos límite y de la influencia de los
+parámetros del sistema. El código y las animaciones están disponibles en
+\href{\repoHREF}{\texttt{\repoURL}}.
+\end{abstract}
+
+\tableofcontents
+
+% =============================================================================
+\section{Introducción y enunciado}
+% =============================================================================
+El ejercicio propone tres atracciones de feria. Este trabajo resuelve la \emph{primera} (ejercicio~1,
+«Formulación lagrangiana»), en sus variantes de rails fijos y giratorios. Responde a las siguientes cuestiones:
+\begin{enumerate}[label=\alph*),leftmargin=*]
+  \item Deducir las ecuaciones de Lagrange para campos conservativos a partir de las de Newton (principio de
+        d'Alembert, desplazamiento virtual, grados de libertad, ligaduras, coordenadas generalizadas y relación
+        lógica entre ambas formulaciones). \emph{Resumen en la sección~\ref{sec:teoria}; deducción completa en el apéndice~\ref{app:lagrange}.}
+  \item Vehículo sobre rails parabólicos fijos: nombre de la atracción, grados de libertad, coordenada
+        generalizada, lagrangiana, constantes del movimiento y ecuaciones del movimiento (sección~\ref{sec:b}).
+  \item Rails que giran alrededor del eje vertical: grados de libertad, coordenadas, lagrangiana, constantes del
+        movimiento y ecuaciones del movimiento (sección~\ref{sec:c}).
+  \item Rails fijos: lagrangiana auxiliar para obtener la reacción normal, ecuaciones, número de incógnitas y
+        significado de la magnitud que representa la reacción (sección~\ref{sec:d}).
+\end{enumerate}
+
+\paragraph{Modelo y convenios.} El vehículo y sus ocupantes se aproximan por una masa puntual $m$; se desprecian el rozamiento con los rails y con el aire.
+Los rails son la curva $z=ax^2$ ($a>0$, unidades m$^{-1}$) contenida en un plano vertical; el eje $z$ apunta hacia arriba y
+la gravedad es $\vec g=-g\,\hat z$. Para los resultados numéricos se toma
+\begin{equation}
+ a=0.1\ \mathrm{m^{-1}},\qquad g=9.81\ \mathrm{m/s^2},
+\end{equation}
+que corresponde a una atracción realista (a 10~m del eje los rails ya han subido 10~m, y el radio de curvatura en el fondo es $R=1/(2a)=5$~m).
+La masa se cancela en todas las ecuaciones del movimiento (principio de equivalencia), por lo que las energías se dan por unidad de masa cuando se comparan resultados.
+Todas las figuras y números de este documento se generan con el código del repositorio (sección~\ref{sec:codigo}).
+
+% =============================================================================
+\section{Resumen teórico: de Newton a Lagrange (apartado a)}\label{sec:teoria}
+% =============================================================================
+El desarrollo completo está en el apéndice~\ref{app:lagrange}; aquí se recoge la cadena lógica.
+
+\begin{enumerate}[label=\roman*),leftmargin=*]
+\item \textbf{Principio de d'Alembert.} Para $N$ partículas, $m_i\ddot{\vec r}_i=\vec F_i^{(a)}+\vec f_i$ (fuerzas aplicadas y de ligadura).
+Un \emph{desplazamiento virtual} $\delta\vec r_i$ es un cambio infinitesimal de la configuración, \emph{instantáneo} ($\delta t=0$) y compatible con
+las ligaduras en ese instante. Para ligaduras ideales (como los rails lisos) las fuerzas de ligadura no realizan trabajo virtual,
+$\sum_i\vec f_i\cdot\delta\vec r_i=0$, y queda
+\begin{equation}
+ \sum_i\left(\vec F_i^{(a)}-m_i\ddot{\vec r}_i\right)\cdot\delta\vec r_i=0 .
+\end{equation}
+\item \textbf{Grados de libertad y coordenadas generalizadas.} Con $k$ ligaduras holónomas $f_\alpha(\vec r_1,\dots,\vec r_N,t)=0$ el sistema
+tiene $n=3N-k$ grados de libertad, y se pueden elegir $n$ coordenadas independientes $q_j$ tales que $\vec r_i=\vec r_i(q_1,\dots,q_n,t)$ cumple automáticamente las ligaduras.
+\item \textbf{Ecuaciones de Lagrange.} Al escribir $\delta\vec r_i=\sum_j\frac{\partial\vec r_i}{\partial q_j}\delta q_j$, y ser los $\delta q_j$ independientes:
+\begin{equation}
+ \ddt{}\!\left(\pd{T}{\dot q_j}\right)-\pd{T}{q_j}=Q_j,\qquad Q_j=\sum_i\vec F_i^{(a)}\cdot\pd{\vec r_i}{q_j}.
+\end{equation}
+Si las fuerzas son conservativas, $\vec F_i=-\nabla_iV$, entonces $Q_j=-\partial V/\partial q_j$ y, con $L=T-V$,
+\begin{equation}
+ \boxed{\ \ddt{}\!\left(\pd{L}{\dot q_j}\right)-\pd{L}{q_j}=0,\qquad j=1,\dots,n .\ }
+\end{equation}
+\item \textbf{Dependencia lógica.} Newton $+$ ligaduras ideales $\Rightarrow$ d'Alembert $\Rightarrow$ Lagrange. Cada paso es reversible
+(los $\delta q_j$ son arbitrarios y la matriz $\partial\vec r_i/\partial q_j$ tiene rango máximo), de modo que las ecuaciones de Lagrange equivalen a las de Newton
+\emph{proyectadas sobre las direcciones permitidas por las ligaduras}. La formulación lagrangiana no contiene nada nuevo desde el punto de vista del contenido físico:
+su ventaja es que elimina las fuerzas de ligadura (que dejan de ser incógnitas) y permite usar coordenadas adaptadas al problema y detectar simetrías.
+\emph{Precio a pagar:} las fuerzas de ligadura no se obtienen, salvo que se recuperen con multiplicadores de Lagrange (apartado d).
+\end{enumerate}
+
+% =============================================================================
+\section{Apartado b): atracción fija «El Valle Parabólico»}\label{sec:b}
+% =============================================================================
+\textbf{Nombre propuesto:} \emph{El Valle Parabólico}.
+
+\paragraph{Grados de libertad y coordenada generalizada.}
+La partícula se mueve en el plano vertical $xz$ (dos coordenadas, $y=0$) con una ligadura holónoma, esclerónoma y bilateral,
+$f(x,z)=z-ax^2=0$. Por tanto hay $2-1=\mathbf{1}$ \textbf{grado de libertad}. Se elige como coordenada generalizada la abscisa
+$q=x$; la posición es $\vec r=(x,\,0,\,ax^2)$ y $\dot z=2ax\dot x$.
+
+\paragraph{Lagrangiana.}
+Con $T=\tfrac12m(\dot x^2+\dot z^2)$ y $V=mgz$:
+\begin{equation}\label{eq:Lb}
+ L_b(x,\dot x)=\tfrac12m\left(1+4a^2x^2\right)\dot x^2-mgax^2 .
+\end{equation}
+
+\paragraph{Constantes del movimiento.}
+$L_b$ no depende explícitamente del tiempo, luego se conserva la función de Jacobi $h=\dot x\,\partial L/\partial\dot x-L$. Como la
+energía cinética es cuadrática en $\dot x$ y la ligadura no depende de $t$, $h$ coincide con la \textbf{energía mecánica}:
+\begin{equation}
+ E=\tfrac12m\left(1+4a^2x^2\right)\dot x^2+mgax^2=\text{cte}.
+\end{equation}
+La coordenada $x$ no es cíclica ($\partial L/\partial x\neq0$), así que no hay más integrales primeras.
+(Con un solo grado de libertad la conservación de $E$ basta para integrar el problema por cuadraturas.)
+
+\paragraph{Ecuación del movimiento.}
+\begin{equation}\label{eq:movb}
+ \boxed{\ \left(1+4a^2x^2\right)\ddot x+4a^2x\,\dot x^2+2ga\,x=0\ }
+\end{equation}
+(deducción en el apéndice~\ref{app:b}). Obsérvese que $m$ no aparece.
+
+\paragraph{Pequeñas oscilaciones y periodo exacto.}
+Para $|2ax|\ll1$ la ecuación se reduce a $\ddot x+2ga\,x=0$: oscilaciones armónicas con
+\begin{equation}
+ \omega_0=\sqrt{2ga},\qquad T_0=\frac{2\pi}{\sqrt{2ga}}=4.486\ \mathrm{s}\quad(a=0.1\ \mathrm{m^{-1}}).
+\end{equation}
+Para amplitud arbitraria $A$ (punto de retorno, $gaA^2=E/m$) el periodo se obtiene exactamente de la conservación de la energía:
+\begin{equation}\label{eq:Tb}
+ T(A)=\frac{4}{\sqrt{2ga}}\;\mathcal{E}\!\left(-4a^2A^2\right)\simeq T_0\left(1+a^2A^2-\tfrac34a^4A^4+\dots\right),
+\end{equation}
+donde $\mathcal E(m)=\int_0^{\pi/2}\sqrt{1-m\sin^2\theta}\,\dd\theta$ es la integral elíptica completa de segunda especie
+(apéndice~\ref{app:b}). Para amplitudes grandes ($aA\gg1$), $T\to4\sqrt{2a/g}\,A$: crece linealmente con $A$.
+A diferencia de un oscilador armónico, \emph{el movimiento no es isócrono}: cuanto mayor es la amplitud, más lento es.
+
+\subsection{Estudio numérico}
+La ecuación \eqref{eq:movb} se integra con un método Runge--Kutta de orden 8 (DOP853, tolerancias $10^{-11}$).
+La energía se conserva con un error relativo máximo de $3\times10^{-10}$ en 200~s (figura~\ref{fig:benergia}, izquierda).
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/b_trayectorias.pdf}
+\caption{Rails fijos, $a=0.1$~m$^{-1}$. Izquierda: $x(t)$ soltando desde el reposo en distintas posiciones $x_0$.
+Derecha: retratos de fases, curvas cerradas de energía constante: el movimiento es siempre periódico, sin separatrices.}
+\label{fig:btray}
+\end{figure}
+
+\paragraph{Condiciones iniciales.} Soltando desde el reposo en $x_0$ la amplitud es $A=x_0$ (figura~\ref{fig:btray}). Si se lanza con velocidad $v_0$ desde el fondo
+($x_0=0$), la energía da $x_{\max}=v_0/\sqrt{2ga}$, que coincide con la simulación (tabla~\ref{tab:b}, derecha); el caso $x_0=0,\ v_0=0$ es el \textbf{equilibrio estable}.
+No existe ninguna condición inicial con movimiento no acotado: el pozo de potencial $mgax^2$ crece sin límite.
+
+\begin{table}[ht]\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{rrrrr@{\qquad}rrr}
+\toprule
+$A$ (m) & $T_{\rm num}$ (s) & $T_{\rm exacto}$ (s) & $T/T_0$ & $1+a^2A^2-\frac34a^4A^4$ & $v_0$ (m/s) & $x_{\max}^{\rm teor}$ (m) & $x_{\max}^{\rm num}$ (m)\\
+\midrule
+1 & 4.5302 & 4.5302 & 1.0099 & 1.0099 & 2 & 1.428 & 1.428 \\
+4 & 5.1345 & 5.1345 & 1.1446 & 1.1408 & 4 & 2.856 & 2.856 \\
+8 & 6.6283 & 6.6283 & 1.4777 & 1.333 & 6 & 4.284 & 4.284 \\
+12 & 8.4782 & 8.4782 & 1.8900 & ---  & 8 & 5.711 & 5.711 \\
+\bottomrule
+\end{tabular}}
+\caption{Izquierda: periodo en función de la amplitud (numérico frente a la fórmula elíptica \eqref{eq:Tb}). El desarrollo en serie solo vale para $aA\lesssim0.5$.
+Derecha: lanzamientos desde el fondo.}\label{tab:b}
+\end{table}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/b_periodo.pdf}
+\caption{Izquierda: periodo frente a la amplitud; la simulación (círculos) coincide con la fórmula exacta \eqref{eq:Tb}, tiende a $T_0$ para amplitudes pequeñas y
+a la asíntota lineal (punteada) para amplitudes grandes. Derecha: dependencia con la pendiente $a$; para $aA\ll1$ se cumple $T\propto a^{-1/2}$ y aparece un mínimo del periodo cuando $aA\sim0.5$.}
+\label{fig:bper}
+\end{figure}
+
+\paragraph{Influencia de los parámetros.} La masa no interviene. El periodo escala con $g^{-1/2}$: el mismo vehículo con $A=8$~m tardaría 6.63~s en la Tierra, 16.31~s en la Luna ($g=1.62$) y 4.17~s en Júpiter ($g=24.8$) (figura~\ref{fig:benergia}, derecha).
+La pendiente $a$ juega un doble papel (figura~\ref{fig:bper}, derecha): una parábola más cerrada aumenta la fuerza restauradora ($T_0\propto a^{-1/2}$), pero
+también aumenta la no linealidad ($aA$), lo que alarga el periodo; el resultado es un mínimo de $T$ en $a\approx0.5/A$.
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/b_energia_g.pdf}
+\caption{Izquierda: error relativo de la energía durante 200~s. Derecha: influencia de la gravedad ($A=8$~m).}
+\label{fig:benergia}
+\end{figure}
+
+% =============================================================================
+\section{Apartado c): rails giratorios «El Valle Giratorio»}\label{sec:c}
+% =============================================================================
+\textbf{Nombre propuesto:} \emph{El Valle Giratorio}.
+
+\paragraph{Hipótesis.} Los rails giran alrededor del eje $z$ tras recibir una velocidad angular inicial y el vehículo siempre permanece sobre ellos, luego
+el ángulo azimutal del vehículo $\varphi$ coincide con el de los rails. Se supone que la inercia de los rails es despreciable
+frente a la del vehículo (se relajará en la sección~\ref{sec:c:variantes}); entonces el sistema es equivalente a una partícula sobre
+la superficie de revolución $z=a\rho^2$ ($\rho$ es la distancia al eje).
+
+\paragraph{Grados de libertad y coordenadas.}
+Tres coordenadas cartesianas y una ligadura holónoma, $z-a(x^2+y^2)=0$, dan $3-1=\mathbf 2$ \textbf{grados de libertad}.
+Se eligen las coordenadas \emph{cilíndricas} $(q_1,q_2)=(\rho,\varphi)$: $\vec r=(\rho\cos\varphi,\ \rho\sin\varphi,\ a\rho^2)$. Dentro del plano de los rails
+se puede interpretar $\rho$ como la abscisa $x$ con signo.
+
+\paragraph{Lagrangiana.} De $v^2=\dot\rho^2+\rho^2\dot\varphi^2+\dot z^2$, $\dot z=2a\rho\dot\rho$:
+\begin{equation}\label{eq:Lc}
+ L_c(\rho,\dot\rho,\dot\varphi)=\tfrac12m\left[\left(1+4a^2\rho^2\right)\dot\rho^2+\rho^2\dot\varphi^2\right]-mga\rho^2 .
+\end{equation}
+
+\paragraph{Constantes del movimiento.}
+\begin{itemize}[leftmargin=*]
+ \item $\varphi$ es \textbf{cíclica} ($\partial L/\partial\varphi=0$, simetría de rotación en torno a $z$), luego se conserva el momento conjugado, que es la componente vertical del momento angular:
+ \begin{equation}
+  l\equiv p_\varphi=m\rho^2\dot\varphi=\text{cte}.
+ \end{equation}
+ \item $\partial L/\partial t=0$ y la ligadura es esclerónoma, luego se conserva la \textbf{energía}
+ $E=\tfrac12m\left[(1+4a^2\rho^2)\dot\rho^2+\rho^2\dot\varphi^2\right]+mga\rho^2$.
+\end{itemize}
+Son dos constantes para dos grados de libertad: el problema es \emph{integrable por cuadraturas}.
+
+\paragraph{Ecuaciones del movimiento.}
+\begin{align}
+ \text{($\varphi$):}\quad & \ddt{}\!\left(m\rho^2\dot\varphi\right)=0 \;\Longrightarrow\; \dot\varphi=\frac{l}{m\rho^2},\\[1mm]
+ \text{($\rho$):}\quad & \boxed{\left(1+4a^2\rho^2\right)\ddot\rho+4a^2\rho\,\dot\rho^2-\rho\dot\varphi^2+2ga\,\rho=0}\label{eq:movc}
+\end{align}
+(apéndice~\ref{app:c}). Sustituyendo $\dot\varphi$, la ecuación radial queda desacoplada y es la de un problema unidimensional con masa efectiva
+variable y un \emph{potencial efectivo}
+\begin{equation}
+ U_{\rm ef}(\rho)=\frac{l^2}{2m\rho^2}+mga\rho^2 ,\qquad E=\tfrac12m(1+4a^2\rho^2)\dot\rho^2+U_{\rm ef}(\rho).
+\end{equation}
+
+\subsection{Análisis cualitativo y casos límite}
+\paragraph{Puntos de retorno.} En un retorno, $\dot\rho=0$, y $E=U_{\rm ef}$ da una ecuación cuadrática en $\rho^2$:
+\begin{equation}\label{eq:retornos}
+ \rho_\pm^2=\frac{E\pm\sqrt{E^2-2ga\,l^2}}{2mga}.
+\end{equation}
+Si $l\neq0$ la barrera centrífuga $l^2/2m\rho^2$ impide llegar al eje: $\rho\in[\rho_-,\rho_+]$, siempre acotado. Del producto de raíces:
+$\rho_-\rho_+=l/(m\sqrt{2ga})$. En particular, si el vehículo parte de $\rho_0$ con $\dot\rho_0=0$ y $\dot\varphi_0=f\,\Omega_c$ con
+\begin{equation}
+ \Omega_c=\sqrt{2ga}=1.401\ \mathrm{rad/s}\ (13.4\ \mathrm{rpm}),
+\end{equation}
+el otro retorno está en $\rho=f\rho_0$ (figura~\ref{fig:cvs}, comprobado numéricamente).
+
+\paragraph{Órbita circular.} Si $E^2=2ga\,l^2$ las dos raíces coinciden: $\rho_c^2=l/(m\sqrt{2ga})$ y
+$\dot\varphi=\Omega_c=\sqrt{2ga}$, \emph{independiente del radio}. Es el equivalente a un «péndulo cónico» con
+$\tan\theta=2a\rho$, y todas las órbitas circulares tienen el mismo periodo $2\pi/\Omega_c=4.49$~s (a diferencia del péndulo cónico habitual).
+Es estable porque $U_{\rm ef}''(\rho_c)=8mga>0$.
+
+\paragraph{Caso límite $l\to0$.} El vehículo pasa cada vez más cerca del eje ($\rho_-\to0$); en el límite $l=0$ el movimiento es plano y se reduce exactamente al del apartado b) (figura~\ref{fig:cl0}).
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/c_vista_superior.pdf}
+\caption{Vista superior de las trayectorias para $\rho_0=8$~m, $\dot\rho_0=0$ y distintas $\dot\varphi_0$ en unidades de $\Omega_c$.
+Se ve cómo el vehículo oscila entre $f\rho_0$ y $\rho_0$ (o entre $\rho_0$ y $\rho_0/f$) mientras gira; para $f=1$ la órbita es circular.}
+\label{fig:cvs}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/c_limite_l0.pdf}
+\caption{Caso límite $l\to0$: al disminuir $\dot\varphi_0$ el vehículo se acerca al eje ($\rho_{\min}=0.80$~m y $0.16$~m). Para $l=0$ (derecha) se recupera el movimiento plano del apartado b).}
+\label{fig:cl0}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\begin{minipage}{0.48\textwidth}\centering
+\includegraphics[width=\textwidth]{figuras/c_potencial_efectivo.pdf}
+\caption{Potencial efectivo para las condiciones de la figura~\ref{fig:cvs}. El punto marca el estado inicial.}
+\label{fig:cuef}
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}\centering
+\includegraphics[width=\textwidth]{figuras/c_trayectoria_3d.png}
+\caption{Trayectoria 3D sobre el paraboloide para $\dot\varphi_0=0.8\,\Omega_c$ y $\rho_0=8$ m.}
+\label{fig:c3d}
+\end{minipage}
+\end{figure}
+
+\subsection{Pequeñas oscilaciones radiales y precesión}
+Alrededor de la órbita circular $\rho_c$ la perturbación radial oscila con
+\begin{equation}
+ \omega_r^2=\frac{U_{\rm ef}''(\rho_c)}{m(1+4a^2\rho_c^2)}=\frac{8ga}{1+4a^2\rho_c^2}
+ \qquad\Longrightarrow\qquad \frac{\omega_r}{\Omega_c}=\frac{2}{\sqrt{1+4a^2\rho_c^2}} .
+\end{equation}
+Entre dos retornos consecutivos el vehículo avanza en azimut
+\begin{equation}\label{eq:apsidal}
+ \Delta\varphi_{\rm aps}=\pi\frac{\Omega_c}{\omega_r}=\frac\pi2\sqrt{1+4a^2\rho_c^2}.
+\end{equation}
+Para órbitas pequeñas $\Delta\varphi_{\rm aps}\to\pi/2$: la trayectoria es una elipse centrada en el eje (potencial armónico 2D, $z\simeq a\rho^2$), cerrada.
+Para $a\rho_c\gtrsim0.5$ la órbita \emph{precesiona}: no es cerrada en general. La simulación coincide con \eqref{eq:apsidal} en todos los casos probados:
+
+\begin{table}[ht]\centering
+\begin{tabular}{rcc}
+\toprule
+$\rho_c$ (m) & $\Delta\varphi_{\rm aps}/\pi$ (simulación) & $\Delta\varphi_{\rm aps}/\pi$ (fórmula \eqref{eq:apsidal})\\
+\midrule
+1 & 0.5099 & 0.5099\\
+4 & 0.6403 & 0.6403\\
+8 & 0.9434 & 0.9434\\
+14 & 1.4866 & 1.4866\\
+\bottomrule
+\end{tabular}
+\caption{Ángulo apsidal para $a=0.1$~m$^{-1}$ ($\varepsilon=10^{-3}$).}
+\end{table}
+
+\subsection{Estudio sistemático de parámetros y variantes}\label{sec:c:variantes}
+\paragraph{Pendiente $a$ y radio.} La figura~\ref{fig:capsidal} (izquierda) muestra $\Delta\varphi_{\rm aps}$ para tres valores de $a$: lo que importa es el producto
+$a\rho_c=\tan\theta/2$, es decir, la inclinación de los rails en la órbita.
+La frecuencia angular de la órbita circular $\Omega_c=\sqrt{2ga}$ aumenta con la pendiente y con $g$, y no depende de $m$.
+
+\paragraph{Inercia de los rails.} Si los rails tienen momento de inercia $I$ respecto al eje, el Lagrangiano gana el término $\tfrac12I\dot\varphi^2$ y
+$p_\varphi=(m\rho^2+I)\dot\varphi$; con $\kappa=I/m$ las ecuaciones siguen siendo \eqref{eq:movc} con $\dot\varphi=l/[m(\rho^2+\kappa)]$ (apéndice~\ref{app:c}).
+Resultados (figura~\ref{fig:capsidal}, derecha, $\rho_0=8$~m, $0.8\,\Omega_c$): el rango radial pasa de $[6.40,\,8.00]$ ($\kappa=0$) a $[6.11,\,8.00]$ ($\kappa=10$~m$^2$) y
+$[5.15,\,8.00]$ ($\kappa=40$~m$^2$); la barrera centrífuga $l^2/[2m(\rho^2+\kappa)]$ se hace finita en $\rho=0$, y para $\kappa=160$~m$^2$ el vehículo \emph{atraviesa el eje}
+(la coordenada del plano de los rails cambia de signo). La velocidad angular de la órbita circular sigue siendo $\sqrt{2ga}$.
+
+\paragraph{Velocidad angular impuesta.} Si un motor impusiera $\dot\varphi=\Omega$ constante la ligadura sería \emph{reónoma}, habría un solo grado de libertad
+y $L=\tfrac12m[(1+4a^2x^2)\dot x^2+\Omega^2x^2]-mgax^2$, con la ecuación
+$(1+4a^2x^2)\ddot x+4a^2x\dot x^2+(2ga-\Omega^2)x=0$. La energía deja de conservarse (el motor trabaja) pero se conserva
+$h=\tfrac12m(1+4a^2x^2)\dot x^2-\tfrac12m\Omega^2x^2+mgax^2$. Aparece una \textbf{velocidad angular crítica} $\Omega_c=\sqrt{2ga}$:
+para $\Omega<\Omega_c$ el fondo es estable y se oscila con $\omega_{\rm ef}=\sqrt{2ga-\Omega^2}$; para $\Omega>\Omega_c$ es inestable y el vehículo
+es expulsado exponencialmente (tasa $\sqrt{\Omega^2-2ga}$), hacia los extremos de los rails (figura~\ref{fig:comega}). Es un caso límite de interés práctico: es la velocidad de giro máxima
+segura de una atracción de este tipo ($\Omega_c\approx13.4$~rpm con $a=0.1$~m$^{-1}$).
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/c_apsidal_kappa.pdf}
+\caption{Izquierda: ángulo apsidal en función del radio de la órbita circular para tres pendientes (líneas: teoría; círculos: simulación).
+Derecha: influencia del momento de inercia de los rails ($\kappa=I/m$).}
+\label{fig:capsidal}
+\end{figure}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/c_omega_impuesta.pdf}
+\caption{Rails con velocidad angular impuesta. Izquierda: $\Omega<\Omega_c$, el vehículo oscila (más despacio al acercarse a $\Omega_c$). Derecha: $\Omega\geq\Omega_c$, el vehículo
+sale despedido del fondo.}
+\label{fig:comega}
+\end{figure}
+
+\paragraph{Conservación.} En todas las simulaciones del apartado c) la energía se conserva con un error relativo $\lesssim4\times10^{-11}$ y $l$ con error $\lesssim10^{-16}$.
+
+% =============================================================================
+\section{Apartado d): reacción normal con una lagrangiana auxiliar}\label{sec:d}
+% =============================================================================
+\paragraph{Lagrangiana auxiliar.} Para obtener la fuerza de ligadura se \emph{reintroduce la coordenada eliminada}: se trabaja con $(x,z)$ y se añade la ligadura
+$f(x,z)=z-ax^2=0$ con un multiplicador de Lagrange $\lambda(t)$:
+\begin{equation}
+ L'(x,z,\dot x,\dot z,\lambda)=\tfrac12m(\dot x^2+\dot z^2)-mgz+\lambda\,(z-ax^2).
+\end{equation}
+
+\paragraph{Ecuaciones del movimiento.}
+\begin{equation}\label{eq:aux}
+ m\ddot x=-2a\lambda\,x,\qquad m\ddot z=-mg+\lambda,\qquad z=ax^2 .
+\end{equation}
+Las dos primeras salen de Euler--Lagrange en $x$ y $z$; la tercera, de $\partial L'/\partial\lambda=0$.
+
+\paragraph{Número de incógnitas.} Hay \textbf{tres incógnitas}, $x(t)$, $z(t)$ y $\lambda(t)$, y tres ecuaciones: las dos dinámicas y la de ligadura. Hay una diferencia importante entre ellas:
+$\lambda$ es una variable \emph{algebraica} (no aparece $\dot\lambda$), de modo que se obtiene derivando dos veces la ligadura, $\ddot z=2a(\dot x^2+x\ddot x)$,
+y eliminando $\ddot x,\ddot z$ con las ecuaciones anteriores:
+\begin{equation}\label{eq:lambda}
+ \lambda=\frac{m\,(g+2a\dot x^2)}{1+4a^2x^2},
+\end{equation}
+mientras que, al sustituir $\lambda$ en la primera ecuación, se recupera exactamente la ecuación \eqref{eq:movb} del apartado b).
+
+\paragraph{Significado de $\lambda$.} Los términos $\lambda\,\partial f/\partial q$ son las \emph{fuerzas generalizadas de ligadura}. Como
+$\nabla f=(-2ax,\,1)$ es perpendicular a los rails,
+\begin{equation}
+ \vec N=\lambda\nabla f=\lambda(-2ax,\,1),\qquad N=|\vec N|=\lambda\sqrt{1+4a^2x^2}=\frac{m\,(g+2a\dot x^2)}{\sqrt{1+4a^2x^2}}.
+\end{equation}
+Es decir, $\lambda$ es la \textbf{componente vertical de la reacción normal} de los rails, y $N$ su módulo. Equivale a $N=m\,g\cos\theta+m\,v^2/\mathcal R$ (componente del peso más fuerza centrípeta, con $\tan\theta=2ax$ y radio de curvatura $\mathcal R=(1+4a^2x^2)^{3/2}/2a$).
+
+\subsection{Resultados}
+\begin{itemize}[leftmargin=*]
+ \item En el fondo ($x=0$): $N=m(g+2av^2)$ con $v^2=2gax_0^2$, es decir
+ \begin{equation}
+  N_{\max}=mg\left(1+4a^2x_0^2\right).
+ \end{equation}
+ \item En un punto de retorno ($\dot x=0$): $N=mg/\sqrt{1+4a^2x_0^2}=mg\cos\theta_0$, como en un plano inclinado.
+ \item $N>0$ en todo el recorrido: el vehículo nunca se despega de los rails.
+\end{itemize}
+La simulación reproduce estos valores (tabla~\ref{tab:d}). La fórmula analítica \eqref{eq:lambda} se ha comprobado de forma \emph{independiente} calculando
+$\vec N=m(\ddot{\vec r}-\vec g)$ por diferenciación numérica de la trayectoria, con un error relativo máximo de $7\times10^{-8}$ (figura~\ref{fig:dnormal}, centro).
+
+\begin{table}[ht]\centering
+\begin{tabular}{rcccc}
+\toprule
+$x_0$ (m) & $N_{\max}/mg$ (sim.) & $1+4a^2x_0^2$ & $N(x_0)/mg$ (sim.) & $1/\sqrt{1+4a^2x_0^2}$ \\
+\midrule
+2 & 1.1600 & 1.1600 & 0.9285 & 0.9285\\
+4 & 1.6400 & 1.6400 & 0.7809 & 0.7809\\
+8 & 3.5600 & 3.5600 & 0.5300 & 0.5300\\
+12 & 6.7600 & 6.7600 & 0.3846 & 0.3846\\
+\bottomrule
+\end{tabular}
+\caption{Reacción normal en el fondo y en los extremos ($a=0.1$~m$^{-1}$). Un ocupante soltado desde $x_0=12$~m experimenta casi 7~$g$ en el fondo,
+lo que fija un límite de diseño para $a\,x_0$.}\label{tab:d}
+\end{table}
+
+\begin{figure}[ht]\centering
+\includegraphics[width=\textwidth]{figuras/d_normal.pdf}
+\caption{Izquierda: $N/mg$ frente al tiempo para distintas posiciones iniciales (punteadas: máximo teórico). Centro: comprobación independiente de $N$ por diferenciación numérica ($x_0=8$ m).
+Derecha: vector $\vec N$ a lo largo de la trayectoria; siempre perpendicular a los rails.}
+\label{fig:dnormal}
+\end{figure}
+
+% =============================================================================
+\section{Simulación y código}\label{sec:codigo}
+% =============================================================================
+Todo el código está en el repositorio \href{\repoHREF}{\texttt{\repoURL}} (Python 3; \texttt{numpy}, \texttt{scipy}, \texttt{matplotlib}, \texttt{pillow}):
+\begin{center}\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll}
+\toprule
+\texttt{simulacion/modelo.py} & ecuaciones, energías, $N$, periodo exacto, ángulo apsidal\dots (apéndice~\ref{app:codigo})\\
+\texttt{simulacion/figuras.py} & genera todas las figuras de este informe y \texttt{resumen\_numerico.txt}\\
+\texttt{simulacion/animaciones.py} & genera las animaciones GIF\\
+\texttt{animaciones/b\_valle\_parabolico.gif} & movimiento sobre los rails fijos, con energías\\
+\texttt{animaciones/c\_valle\_giratorio.gif} & rails giratorios en 3D y vista superior\\
+\texttt{animaciones/d\_reaccion\_normal.gif} & vectores $\vec N$ y $m\vec g$ y $N(t)$\\
+\bottomrule
+\end{tabular}}
+\end{center}
+Las animaciones (también directamente en \href{\repoHREF/tree/main/animaciones}{\texttt{animaciones/}}) integran numéricamente las ecuaciones \eqref{eq:movb}, \eqref{eq:movc} y \eqref{eq:aux} (no son un dibujo del movimiento esperado).
+Para reproducir todo: \texttt{pip install numpy scipy matplotlib pillow}, \texttt{python simulacion/figuras.py} y \texttt{python simulacion/animaciones.py}.
+
+% =============================================================================
+\section{Conclusiones}
+% =============================================================================
+\begin{enumerate}[leftmargin=*]
+ \item Con rails fijos el sistema tiene un grado de libertad y es un oscilador \emph{no isócrono}: $T=T_0\,\mathcal E(-4a^2A^2)\cdot2/\pi$, que crece con la amplitud de $T_0=4.49$~s ($A\to0$) a $6.63$~s ($A=8$~m).
+ \item Con los rails giratorios aparece la simetría $\varphi$ y la conservación de $l$; el vehículo queda confinado entre dos radios dados analíticamente por \eqref{eq:retornos}. Las órbitas circulares tienen
+ siempre $\dot\varphi=\sqrt{2ga}$, y las órbitas casi circulares precesionan con $\Delta\varphi_{\rm aps}=\frac\pi2\sqrt{1+4a^2\rho_c^2}$.
+ \item La lagrangiana auxiliar convierte la reacción normal en una incógnita más ($\lambda$); su valor máximo en el fondo es $mg(1+4a^2x_0^2)$, dato esencial para el diseño de seguridad.
+ \item Las simulaciones reproducen todos los resultados analíticos con precisión de máquina, lo que valida tanto las ecuaciones como el código.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{goldstein} H.~Goldstein, C.~Poole y J.~Safko, \emph{Classical Mechanics}, 3.ª ed., Addison-Wesley (2002).
+\bibitem{landau} L.~D.~Landau y E.~M.~Lifshitz, \emph{Mecánica}, Reverté.
+\bibitem{taylor} J.~R.~Taylor, \emph{Classical Mechanics}, University Science Books (2005).
+\bibitem{marion} S.~T.~Thornton y J.~B.~Marion, \emph{Classical Dynamics of Particles and Systems}, 5.ª ed., Brooks/Cole (2004).
+\end{thebibliography}
+
+% =============================================================================
+\appendix
+\section{Cálculos: de las ecuaciones de Newton a las de Lagrange}\label{app:lagrange}
+% =============================================================================
+\paragraph{A.1 Principio de d'Alembert.}
+Sea un sistema de $N$ partículas con $m_i\ddot{\vec r}_i=\vec F_i^{(a)}+\vec f_i$. Un \emph{desplazamiento virtual} $\delta\vec r_i$ es un desplazamiento infinitesimal, arbitrario,
+\emph{instantáneo} (se «congela» el tiempo y las ligaduras dependientes de $t$) y compatible con las ligaduras en ese instante. Se diferencia del real $\dd\vec r_i$ en que este último ocurre en $\dd t$ y se ve afectado por la dependencia temporal
+de las ligaduras. Multiplicando cada ecuación de Newton por $\delta\vec r_i$ y sumando:
+\begin{equation}
+ \sum_i\left(m_i\ddot{\vec r}_i-\vec F_i^{(a)}\right)\cdot\delta\vec r_i=\sum_i\vec f_i\cdot\delta\vec r_i .
+\end{equation}
+Para ligaduras \emph{ideales} (sin rozamiento: $\vec f_i$ perpendicular a las superficies de ligadura y $\delta\vec r_i$ tangente a ellas), $\sum_i\vec f_i\cdot\delta\vec r_i=0$, y se obtiene el principio de d'Alembert:
+\begin{equation}
+ \sum_i\left(\vec F_i^{(a)}-m_i\ddot{\vec r}_i\right)\cdot\delta\vec r_i=0 .\tag{A.1}
+\end{equation}
+Aún no se puede igualar a cero cada término, porque los $\delta\vec r_i$ no son independientes.
+
+\paragraph{A.2 Grados de libertad, ligaduras, coordenadas generalizadas.}
+Las ligaduras holónomas son $f_\alpha(\vec r_1,\ldots,\vec r_N,t)=0$, $\alpha=1,\ldots,k$. Hay $n=3N-k$ grados de libertad. Se eligen $n$ coordenadas generalizadas independientes $q_1,\ldots,q_n$ tales que
+$\vec r_i=\vec r_i(q_1,\ldots,q_n,t)$ satisface identicamente las ligaduras. Entonces
+\begin{equation}
+ \delta\vec r_i=\sum_{j=1}^n\pd{\vec r_i}{q_j}\delta q_j,\qquad \dot{\vec r}_i=\sum_j\pd{\vec r_i}{q_j}\dot q_j+\pd{\vec r_i}{t},
+\end{equation}
+con los $\delta q_j$ \emph{independientes}. De la segunda expresión se siguen las dos identidades de Lagrange:
+\begin{equation}
+ \pd{\dot{\vec r}_i}{\dot q_j}=\pd{\vec r_i}{q_j},\qquad \ddt{}\!\left(\pd{\vec r_i}{q_j}\right)=\pd{\dot{\vec r}_i}{q_j}.\tag{A.2}
+\end{equation}
+
+\paragraph{A.3 Ecuaciones de Lagrange.}
+\emph{Trabajo virtual de las fuerzas aplicadas:} $\sum_i\vec F_i^{(a)}\cdot\delta\vec r_i=\sum_jQ_j\delta q_j$, con $Q_j=\sum_i\vec F_i^{(a)}\cdot\partial\vec r_i/\partial q_j$.
+
+\emph{Término inercial:} usando (A.2),
+\begin{align}
+ \sum_im_i\ddot{\vec r}_i\cdot\pd{\vec r_i}{q_j}
+ &=\ddt{}\!\left(\sum_im_i\dot{\vec r}_i\cdot\pd{\vec r_i}{q_j}\right)-\sum_im_i\dot{\vec r}_i\cdot\ddt{}\!\left(\pd{\vec r_i}{q_j}\right)\nonumber\\
+ &=\ddt{}\!\left(\sum_im_i\dot{\vec r}_i\cdot\pd{\dot{\vec r}_i}{\dot q_j}\right)-\sum_im_i\dot{\vec r}_i\cdot\pd{\dot{\vec r}_i}{q_j}
+ =\ddt{}\!\left(\pd{T}{\dot q_j}\right)-\pd{T}{q_j},
+\end{align}
+con $T=\sum_i\tfrac12m_i\dot{\vec r}_i^{\,2}$. Sustituyendo en (A.1):
+$\sum_j\left[\ddt{}\!\left(\pd{T}{\dot q_j}\right)-\pd{T}{q_j}-Q_j\right]\delta q_j=0$. Como los $\delta q_j$ son independientes, cada corchete se anula:
+\begin{equation}
+ \ddt{}\!\left(\pd{T}{\dot q_j}\right)-\pd{T}{q_j}=Q_j .\tag{A.3}
+\end{equation}
+\emph{Campos conservativos:} si $\vec F_i^{(a)}=-\nabla_iV(\vec r_1,\ldots,\vec r_N,t)$, entonces $Q_j=-\sum_i\nabla_iV\cdot\partial\vec r_i/\partial q_j=-\partial V/\partial q_j$. Como $V$ no depende de las
+velocidades, $\partial T/\partial\dot q_j=\partial L/\partial\dot q_j$ con $L=T-V$, y (A.3) se convierte en
+\begin{equation}
+ \ddt{}\!\left(\pd{L}{\dot q_j}\right)-\pd{L}{q_j}=0 .\tag{A.4}
+\end{equation}
+
+\paragraph{A.4 Relación lógica.}
+La cadena es: (Newton) $+$ (ligaduras holónomas e ideales) $\Rightarrow$ (A.1) $\Rightarrow$ (A.3) $\Rightarrow$ (A.4) si las fuerzas son conservativas.
+Cada paso es reversible: de (A.4) se llega a (A.3) y, como $\partial\vec r_i/\partial q_j$ tiene rango máximo, a (A.1), que es la proyección de las ecuaciones de Newton sobre las direcciones compatibles con las ligaduras.
+Para una partícula libre en cartesianas, (A.4) \emph{es} la segunda ley de Newton ($m\ddot x_j=-\partial V/\partial x_j$). Newton es el postulado de partida y Lagrange una reformulación equivalente
+(con la hipótesis adicional de ligaduras ideales, que no está en las leyes de Newton).
+
+% =============================================================================
+\section{Cálculos del apartado b)}\label{app:b}
+% =============================================================================
+\paragraph{B.1 Lagrangiana y ecuación del movimiento.}
+Con $z=ax^2$, $\dot z=2ax\dot x$: $T=\tfrac12m\dot x^2(1+4a^2x^2)$, $V=mgax^2$. Entonces
+\begin{align}
+ \pd{L}{\dot x}&=m(1+4a^2x^2)\dot x,&
+ \ddt{}\!\pd{L}{\dot x}&=m(1+4a^2x^2)\ddot x+8ma^2x\dot x^2,\\
+ \pd{L}{x}&=4ma^2x\dot x^2-2mgax .
+\end{align}
+La ecuación de Euler--Lagrange da $m(1+4a^2x^2)\ddot x+8ma^2x\dot x^2-4ma^2x\dot x^2+2mgax=0$, es decir,
+\begin{equation}
+ (1+4a^2x^2)\ddot x+4a^2x\dot x^2+2gax=0.
+\end{equation}
+
+\paragraph{B.2 Energía y función de Jacobi.}
+$h=\dot x\,\partial L/\partial\dot x-L=m(1+4a^2x^2)\dot x^2-\tfrac12m(1+4a^2x^2)\dot x^2+mgax^2=\tfrac12m(1+4a^2x^2)\dot x^2+mgax^2=E$.
+$\dd h/\dd t=-\partial L/\partial t=0$.
+
+\paragraph{B.3 Periodo exacto.}
+De $E=mgaA^2$ ($A$: punto de retorno, $\dot x=0$):
+\begin{equation}
+ \dot x=\pm\sqrt{\frac{2ga(A^2-x^2)}{1+4a^2x^2}} .
+\end{equation}
+El tiempo en ir de $x=0$ a $x=A$ es un cuarto del periodo:
+\begin{equation}
+ T=4\int_0^A\sqrt{\frac{1+4a^2x^2}{2ga\,(A^2-x^2)}}\,\dd x .
+\end{equation}
+Con $x=A\sin\theta$ ($\dd x=A\cos\theta\,\dd\theta$, $\sqrt{A^2-x^2}=A\cos\theta$):
+\begin{equation}
+ T=\frac{4}{\sqrt{2ga}}\int_0^{\pi/2}\sqrt{1+4a^2A^2\sin^2\theta}\,\dd\theta=\frac{4}{\sqrt{2ga}}\,\mathcal E(-4a^2A^2).
+\end{equation}
+Desarrollando $\mathcal E(m)=\frac\pi2\left[1-\frac m4-\frac{3m^2}{64}-\dots\right]$ con $m=-4a^2A^2$:
+$T=T_0\left[1+a^2A^2-\tfrac34a^4A^4+\dots\right]$, con $T_0=2\pi/\sqrt{2ga}$. Para $aA\gg1$ el integrando es $\simeq2aA\sin\theta$, $\int_0^{\pi/2}\sin\theta\,\dd\theta=1$,
+y $T\simeq8aA/\sqrt{2ga}=4\sqrt{2a/g}\,A$.
+
+\paragraph{B.4 Pequeñas oscilaciones.} Para $|x|\ll1/(2a)$ y velocidades pequeñas se desprecian los términos $4a^2x^2\ddot x$ y $4a^2x\dot x^2$ (de orden superior): $\ddot x+2ga\,x=0$, $\omega_0^2=2ga$.
+Si se lanza desde el fondo con $v_0$: $\tfrac12mv_0^2=mgax_{\max}^2$, $x_{\max}=v_0/\sqrt{2ga}$.
+
+% =============================================================================
+\section{Cálculos del apartado c)}\label{app:c}
+% =============================================================================
+\paragraph{C.1 Lagrangiana.}
+$\vec r=(\rho\cos\varphi,\rho\sin\varphi,a\rho^2)$, $\dot{\vec r}=(\dot\rho\cos\varphi-\rho\dot\varphi\sin\varphi,\ \dot\rho\sin\varphi+\rho\dot\varphi\cos\varphi,\ 2a\rho\dot\rho)$,
+$v^2=\dot\rho^2+\rho^2\dot\varphi^2+4a^2\rho^2\dot\rho^2$. $L=\tfrac12mv^2-mga\rho^2$ da \eqref{eq:Lc}.
+
+\paragraph{C.2 Ecuaciones.}
+\begin{align}
+ \varphi:&\ \ \ddt{}\!\left(m\rho^2\dot\varphi\right)=0,\\
+ \rho:&\ \ \ddt{}\!\left[m(1+4a^2\rho^2)\dot\rho\right]-\left[4ma^2\rho\dot\rho^2+m\rho\dot\varphi^2-2mga\rho\right]=0\nonumber\\
+ &\Longrightarrow\ (1+4a^2\rho^2)\ddot\rho+8a^2\rho\dot\rho^2-4a^2\rho\dot\rho^2-\rho\dot\varphi^2+2ga\rho=0,
+\end{align}
+que es \eqref{eq:movc}. Con $\dot\varphi=l/m\rho^2$ el sistema se reduce a una ecuación para $\rho(t)$ y a una cuadratura para $\varphi(t)$.
+
+\paragraph{C.3 Energía y potencial efectivo.}
+$h=\dot\rho\,p_\rho+\dot\varphi\,p_\varphi-L=E$, con $E=\tfrac12m(1+4a^2\rho^2)\dot\rho^2+\tfrac12m\rho^2\dot\varphi^2+mga\rho^2$. Usando $\dot\varphi=l/m\rho^2$,
+$E=\tfrac12m(1+4a^2\rho^2)\dot\rho^2+U_{\rm ef}$, $U_{\rm ef}=\frac{l^2}{2m\rho^2}+mga\rho^2$.
+
+\paragraph{C.4 Puntos de retorno.}
+En $\dot\rho=0$: $E=\frac{l^2}{2m\rho^2}+mga\rho^2$. Con $u=\rho^2$: $mga\,u^2-E\,u+\frac{l^2}{2m}=0$, cuyas raíces son
+$u_\pm=\frac{E\pm\sqrt{E^2-2ga\,l^2}}{2mga}$ (hay órbita acotada si $E^2\geq2ga\,l^2$). Producto de raíces: $u_+u_-=\frac{l^2}{2m^2ga}$ $\Rightarrow$ $\rho_+\rho_-=\frac{l}{m\sqrt{2ga}}$.
+Si parte de un retorno $\rho_0$ con $\dot\varphi_0$: $l/m=\rho_0^2\dot\varphi_0$ y $\rho_{\rm otro}=\rho_0\dot\varphi_0/\sqrt{2ga}=f\rho_0$.
+
+\paragraph{C.5 Órbita circular y pequeñas oscilaciones.}
+$U_{\rm ef}'=-\frac{l^2}{m\rho^3}+2mga\rho=0\Rightarrow\rho_c^4=\frac{l^2}{2m^2ga}$. Entonces $\dot\varphi_c=\frac{l}{m\rho_c^2}=\sqrt{2ga}$ (independiente de $\rho_c$).
+$U_{\rm ef}''=\frac{3l^2}{m\rho^4}+2mga=6mga+2mga=8mga$ en $\rho_c$. Linealizando $\rho=\rho_c+\xi$ (en la ecuación radial el término $4a^2\rho\dot\rho^2$ es de segundo orden):
+$m(1+4a^2\rho_c^2)\ddot\xi=-U_{\rm ef}''\xi\Rightarrow\omega_r^2=\frac{8ga}{1+4a^2\rho_c^2}$. Entre dos retornos transcurre $\pi/\omega_r$, y en ese tiempo el vehículo gira $\Omega_c\pi/\omega_r=\frac\pi2\sqrt{1+4a^2\rho_c^2}$.
+
+\paragraph{C.6 Inercia de los rails ($\kappa=I/m$).}
+Añadiendo $\tfrac12I\dot\varphi^2$ a $L_c$: $p_\varphi=m(\rho^2+\kappa)\dot\varphi$ constante; la ecuación radial es la misma \eqref{eq:movc} con $\dot\varphi=L/(\rho^2+\kappa)$, $L=l/m$;
+$U_{\rm ef}/m=\frac{L^2}{2(\rho^2+\kappa)}+ga\rho^2$. Circular: $(\rho^2+\kappa)^2=L^2/2ga\Rightarrow\dot\varphi_c=\sqrt{2ga}$ de nuevo, y
+$\omega_r^2=\dfrac{8ga\rho_c^2}{(\rho_c^2+\kappa)(1+4a^2\rho_c^2)}$.
+
+\paragraph{C.7 Velocidad angular impuesta.}
+Con $\varphi=\Omega t$, $\vec r=(x\cos\Omega t,x\sin\Omega t,ax^2)$, $L=\tfrac12m[(1+4a^2x^2)\dot x^2+\Omega^2x^2]-mgax^2$.
+Euler--Lagrange: $(1+4a^2x^2)\ddot x+4a^2x\dot x^2+(2ga-\Omega^2)x=0$. $L$ no depende de $t$ pero $L\neq T-V$
+(aparece $\Omega^2x^2/2$ en $T_2$ sin velocidad), luego $h=\dot x\,p_x-L=\tfrac12m(1+4a^2x^2)\dot x^2-\tfrac12m\Omega^2x^2+mgax^2$ se conserva pero $\neq E$.
+Linealizando: $\ddot x=-(2ga-\Omega^2)x$.
+
+% =============================================================================
+\section{Cálculos del apartado d)}\label{app:d}
+% =============================================================================
+\paragraph{D.1 Multiplicadores de Lagrange.}
+Para ligaduras holónomas $f_\alpha(q,t)=0$ en $n$ coordenadas «sobrantes», $L'=L+\sum_\alpha\lambda_\alpha f_\alpha$ y
+$\ddt{}\pd{L}{\dot q_j}-\pd{L}{q_j}=\sum_\alpha\lambda_\alpha\pd{f_\alpha}{q_j}$ ($=Q^{\rm lig}_j$). Aquí $q=(x,z)$, $f=z-ax^2$:
+\begin{align}
+ x:&\ \ m\ddot x=-2a\lambda x,\\
+ z:&\ \ m\ddot z=-mg+\lambda,\\
+ \lambda:&\ \ z-ax^2=0 .
+\end{align}
+
+\paragraph{D.2 Cálculo de $\lambda$.}
+De la ligadura, $\dot z=2ax\dot x$, $\ddot z=2a(\dot x^2+x\ddot x)$. Sustituyendo $\ddot x=-2a\lambda x/m$:
+$\ddot z=2a\dot x^2-4a^2\lambda x^2/m$. Igualando a $-g+\lambda/m$:
+\begin{equation}
+ \frac{\lambda}{m}\left(1+4a^2x^2\right)=g+2a\dot x^2\ \Rightarrow\ \lambda=\frac{m(g+2a\dot x^2)}{1+4a^2x^2}.
+\end{equation}
+Sustituyendo en la ecuación de $x$: $\ddot x=-\frac{2ax(g+2a\dot x^2)}{1+4a^2x^2}$, es decir, $(1+4a^2x^2)\ddot x+4a^2x\dot x^2+2gax=0$ (ec.~\eqref{eq:movb}).
+
+\paragraph{D.3 Reacción normal.}
+La fuerza de ligadura es $\vec N=(Q^{\rm lig}_x,Q^{\rm lig}_z)=\lambda(-2ax,\,1)=\lambda\nabla f$, perpendicular a los rails. $N=\lambda\sqrt{1+4a^2x^2}=\dfrac{m(g+2a\dot x^2)}{\sqrt{1+4a^2x^2}}$.
+En el fondo: $x=0$, $\dot x^2=2gax_0^2$: $N=m(g+4ga^2x_0^2)=mg(1+4a^2x_0^2)$. En un retorno: $N=mg/\sqrt{1+4a^2x_0^2}=mg\cos\theta_0$.
+Comprobación con la geometría: $\tan\theta=2ax$, $\cos\theta=1/\sqrt{1+4a^2x^2}$, $v^2=(1+4a^2x^2)\dot x^2$, curvatura $2a/(1+4a^2x^2)^{3/2}$:
+$N=mg\cos\theta+mv^2\cdot\frac{2a}{(1+4a^2x^2)^{3/2}}=\frac{m(g+2a\dot x^2)}{\sqrt{1+4a^2x^2}}$, que coincide.
+
+% =============================================================================
+\section{Código del modelo}\label{app:codigo}
+% =============================================================================
+Listado completo de \texttt{simulacion/modelo.py} (el resto del código, que solo dibuja, está en el repositorio).
+\lstinputlisting{../simulacion/modelo.py}
+
+\end{document}
